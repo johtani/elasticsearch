@@ -155,7 +155,7 @@ public final class AnalysisRegistry implements Closeable {
          * instead of building the infrastructure for plugins we rather make it a real exception to not pollute the general interface and
          * hide internal data-structures as much as possible.
          */
-        tokenFilters.put("synonym", requriesAnalysisSettings((is, env, name, settings) -> new SynonymTokenFilterFactory(is, env, tokenizerFactories, name, settings)));
+        tokenFilters.put("synonym", requriesAnalysisSettings((is, env, name, settings) -> new SynonymTokenFilterFactory(is, env, this, tokenizerFactories, name, settings)));
         final Map<String, TokenFilterFactory> tokenFilterFactories = buildMapping(false, "tokenfilter", indexSettings, tokenFiltersSettings, Collections.unmodifiableMap(tokenFilters), prebuiltAnalysis.tokenFilterFactories);
         final Map<String, AnalyzerProvider> analyzierFactories = buildMapping(true, "analyzer", indexSettings, analyzersSettings, analyzers, prebuiltAnalysis.analyzerProviderFactories);
         return new AnalysisService(indexSettings, analyzierFactories, tokenizerFactories, charFilterFactories, tokenFilterFactories);

@@ -34,6 +34,7 @@ import org.elasticsearch.index.Index;
 import org.elasticsearch.index.IndexSettings;
 import org.elasticsearch.index.analysis.AnalysisRegistry;
 import org.elasticsearch.index.analysis.AnalysisService;
+import org.elasticsearch.index.analysis.AnalysisTestsHelper;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.test.IndexSettingsModule;
 import org.hamcrest.MatcherAssert;
@@ -44,6 +45,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
 
 /**
  */
@@ -75,7 +77,50 @@ public class SynonymsAnalysisTests extends ESTestCase {
         match("synonymAnalyzerWordnet", "abstain", "abstain refrain desist");
         match("synonymAnalyzerWordnet_file", "abstain", "abstain refrain desist");
         match("synonymAnalyzerWithsettings", "kimchy", "sha hay");
+        match("synonymAnalyzerWithCharfilter", "kimchy is the dude ABides", "shay is the elasticsearch man!");
+        match("synonymAnalyzerWithStopAfterSynonym", "kimchy is the dude abides , stop", "shay is the elasticsearch man! ,");
+        match("synonymAnalyzerWithStopBeforeSynonym", "kimchy is the dude abides , stop", "shay is the elasticsearch man! ,");
+        match("synonymAnalyzerWithStopSynonymAfterSynonym", "kimchy is the dude abides", "shay is the man!");
+        match("synonymAnalyzerExpand", "kimchy is the dude abides", "kimchy shay is the dude elasticsearch abides man!");
+        match("synonymAnalyzerExpandWithStopAfterSynonym", "kimchy is the dude abides", "shay is the dude abides man!");
+        match("synonymAnalyzerWithTokenizerFactory", "kimchy is the dude abides", "is the elasticsearch man");
+
     }
+
+    public void testSynonymWordDeleteByAnalyzer() throws IOException {
+        Settings settings = Settings.builder()
+            .put("index.analysis.filter.synonym.type", "synonym")
+            .putArray("index.analysis.filter.synonym.synonyms", "kimchy => shay", "dude => elasticsearch", "abides => man!")
+            .put("index.analysis.filter.stop_within_synonym.type", "stop")
+            .putArray("index.analysis.filter.stop_within_synonym.stopwords", "kimchy", "elasticsearch")
+            .put("index.analysis.analyzer.synonymAnalyzerWithStopSynonymBeforeSynonym.tokenizer", "whitespace")
+            .putArray("index.analysis.analyzer.synonymAnalyzerWithStopSynonymBeforeSynonym.filter", "stop_within_synonym","synonym")
+            .put().build();
+        try {
+            AnalysisTestsHelper.createAnalysisServiceFromSettings(settings);
+            fail("fail! due to synonym word deleted by analyzer");
+        } catch (Exception e) {
+            assertThat(e.getCause(), instanceOf(IllegalArgumentException.class));
+        }
+    }
+
+    public void testExpandSynonymWordDeleteByAnalyzer() throws IOException {
+        Settings settings = Settings.builder()
+            .put("index.analysis.filter.synonym_expand.type", "synonym")
+            .putArray("index.analysis.filter.synonym_expand.synonyms", "kimchy, shay", "dude, elasticsearch", "abides, man!")
+            .put("index.analysis.filter.stop_within_synonym.type", "stop")
+            .putArray("index.analysis.filter.stop_within_synonym.stopwords", "kimchy", "elasticsearch")
+            .put("index.analysis.analyzer.synonymAnalyzerExpandWithStopBeforeSynonym.tokenizer", "whitespace")
+            .putArray("index.analysis.analyzer.synonymAnalyzerExpandWithStopBeforeSynonym.filter", "stop_within_synonym","synonym_expand")
+            .put().build();
+        try {
+            AnalysisTestsHelper.createAnalysisServiceFromSettings(settings);
+            fail("fail! due to synonym word deleted by analyzer");
+        } catch (Exception e) {
+            assertThat(e.getCause(), instanceOf(IllegalArgumentException.class));
+        }
+    }
+
 
     private void match(String analyzerName, String source, String target) throws IOException {
 

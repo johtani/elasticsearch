@@ -33,8 +33,15 @@ The above configures a `synonym` filter, with a path of
 settings are: `ignore_case` (defaults to `false`), and `expand`
 (defaults to `true`).
 
+This filter tokenize synonyms with whatever tokenizer and token filters
+appear before it in the chain.
+
+[float]
+==== `tokenizer` deprecated
+
 The `tokenizer` parameter controls the tokenizers that will be used to
-tokenize the synonym, and defaults to the `whitespace` tokenizer.
+tokenize the synonym, this parameter is for backwards compatibility.
+
 
 Two synonym formats are supported: Solr, WordNet.
 

@@ -64,34 +64,44 @@ public class CustomAnalyzerProvider extends AbstractIndexAnalyzerProvider<Custom
             charFilters.add(charFilter);
         }
 
+        int positionIncrementGap = TextFieldMapper.Defaults.POSITION_INCREMENT_GAP;
+        if (analyzerSettings.getAsMap().containsKey("position_offset_gap")){
+            if (indexSettings.getIndexVersionCreated().before(Version.V_2_0_0)){
+                if (analyzerSettings.getAsMap().containsKey("position_increment_gap")){
+                    throw new IllegalArgumentException("Custom Analyzer [" + name() +
+                        "] defined both [position_offset_gap] and [position_increment_gap], use only [position_increment_gap]");
+                }
+                positionIncrementGap = analyzerSettings.getAsInt("position_offset_gap", positionIncrementGap);
+            }else {
+                throw new IllegalArgumentException("Option [position_offset_gap] in Custom Analyzer [" + name() +
+                    "] has been renamed, please use [position_increment_gap] instead.");
+            }
+        }
+        positionIncrementGap = analyzerSettings.getAsInt("position_increment_gap", positionIncrementGap);
+        int offsetGap = analyzerSettings.getAsInt("offset_gap", -1);
+
         List<TokenFilterFactory> tokenFilters = new ArrayList<>();
         String[] tokenFilterNames = analyzerSettings.getAsArray("filter");
+        SynonymTokenFilterFactory.Factory synonymTokenFilterFactory;
+        List<TokenFilterFactory> tokenFiltersForSynonym;
         for (String tokenFilterName : tokenFilterNames) {
             TokenFilterFactory tokenFilter = analysisService.tokenFilter(tokenFilterName);
             if (tokenFilter == null) {
                 throw new IllegalArgumentException("Custom Analyzer [" + name() + "] failed to find filter under name [" + tokenFilterName + "]");
             }
+            if (tokenFilter instanceof SynonymTokenFilterFactory) {
+                tokenFiltersForSynonym = new ArrayList<>(tokenFilters);
+                synonymTokenFilterFactory = ((SynonymTokenFilterFactory) tokenFilter).createPerAnalyzerFactory(
+                    new CustomAnalyzer(tokenizer,
+                    charFilters.toArray(new CharFilterFactory[charFilters.size()]),
+                    tokenFiltersForSynonym.toArray(new TokenFilterFactory[tokenFiltersForSynonym.size()]),
+                    positionIncrementGap,
+                    offsetGap));
+                tokenFilter = synonymTokenFilterFactory;
+            }
             tokenFilters.add(tokenFilter);
         }
 
-        int positionIncrementGap = TextFieldMapper.Defaults.POSITION_INCREMENT_GAP;
-
-        if (analyzerSettings.getAsMap().containsKey("position_offset_gap")){
-            if (indexSettings.getIndexVersionCreated().before(Version.V_2_0_0)){
-                if (analyzerSettings.getAsMap().containsKey("position_increment_gap")){
-                    throw new IllegalArgumentException("Custom Analyzer [" + name() +
-                            "] defined both [position_offset_gap] and [position_increment_gap], use only [position_increment_gap]");
-                }
-                positionIncrementGap = analyzerSettings.getAsInt("position_offset_gap", positionIncrementGap);
-            }else {
-                throw new IllegalArgumentException("Option [position_offset_gap] in Custom Analyzer [" + name() +
-                        "] has been renamed, please use [position_increment_gap] instead.");
-            }
-        }
-
-        positionIncrementGap = analyzerSettings.getAsInt("position_increment_gap", positionIncrementGap);
-
-        int offsetGap = analyzerSettings.getAsInt("offset_gap", -1);;
         this.customAnalyzer = new CustomAnalyzer(tokenizer,
                 charFilters.toArray(new CharFilterFactory[charFilters.size()]),
                 tokenFilters.toArray(new TokenFilterFactory[tokenFilters.size()]),
