@@ -90,10 +90,7 @@
                     "type":"synonym",
                     "synonyms":[
                         "kimchy => shay"
-                    ],
-                    "tokenizer" : "trigram",
-                    "min_gram" : 3,
-                    "max_gram" : 3
+                    ]
                 },
                 "synonym_within_upper":{
                     "type":"synonym",
