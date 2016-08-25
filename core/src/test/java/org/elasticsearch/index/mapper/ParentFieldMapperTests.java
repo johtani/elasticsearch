@@ -28,9 +28,11 @@ import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.env.Environment;
 import org.elasticsearch.index.Index;
 import org.elasticsearch.index.IndexService;
 import org.elasticsearch.index.IndexSettings;
+import org.elasticsearch.index.analysis.AnalysisRegistry;
 import org.elasticsearch.index.analysis.AnalysisService;
 import org.elasticsearch.index.mapper.ContentPath;
 import org.elasticsearch.index.mapper.DocumentMapper;
@@ -110,9 +112,13 @@ public class ParentFieldMapperTests extends ESSingleNodeTestCase {
 
     public void testNoParentNullFieldCreatedIfNoParentSpecified() throws Exception {
         Index index = new Index("_index", "testUUID");
-        IndexSettings indexSettings = IndexSettingsModule.newIndexSettings(index, Settings.EMPTY);
-        AnalysisService analysisService = new AnalysisService(indexSettings, Collections.emptyMap(), Collections.emptyMap(),
-            Collections.emptyMap(), Collections.emptyMap());
+        Settings settings = Settings.builder().put(IndexMetaData.SETTING_VERSION_CREATED, Version.CURRENT)
+            .put(Environment.PATH_HOME_SETTING.getKey(), createTempDir().toString()).build();
+        IndexSettings indexSettings = IndexSettingsModule.newIndexSettings(index, settings);
+        Environment environment = new Environment(settings);
+        AnalysisService analysisService = new AnalysisService(indexSettings,
+            new AnalysisRegistry(environment, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap()),
+            environment, Collections.emptyMap());
         SimilarityService similarityService = new SimilarityService(indexSettings, Collections.emptyMap());
         MapperService mapperService = new MapperService(indexSettings, analysisService, similarityService,
             new IndicesModule(emptyList()).getMapperRegistry(), () -> null);

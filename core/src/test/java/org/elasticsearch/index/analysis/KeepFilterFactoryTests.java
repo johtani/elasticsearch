@@ -29,6 +29,7 @@ import org.junit.Assert;
 import java.io.IOException;
 import java.io.StringReader;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 
 public class KeepFilterFactoryTests extends ESTokenStreamTestCase {
@@ -36,8 +37,9 @@ public class KeepFilterFactoryTests extends ESTokenStreamTestCase {
 
     public void testLoadWithoutSettings() throws IOException {
         AnalysisService analysisService = AnalysisTestsHelper.createAnalysisServiceFromClassPath(createTempDir(), RESOURCE);
-        TokenFilterFactory tokenFilter = analysisService.tokenFilter("keep");
-        Assert.assertNull(tokenFilter);
+        IllegalArgumentException e = expectThrows(IllegalArgumentException.class,
+            () -> analysisService.tokenFilter("keep"));
+        assertThat(e.getMessage(), containsString("failed to find token filter under [keep]"));
     }
 
     public void testLoadOverConfiguredSettings() {
@@ -48,7 +50,8 @@ public class KeepFilterFactoryTests extends ESTokenStreamTestCase {
                 .put("index.analysis.filter.broken_keep_filter.keep_words", "[\"Hello\", \"worlD\"]")
                 .build();
         try {
-            AnalysisTestsHelper.createAnalysisServiceFromSettings(settings);
+            AnalysisService analysisService = AnalysisTestsHelper.createAnalysisServiceFromSettings(settings);
+            analysisService.tokenFilter("broken_keep_filter");
             Assert.fail("path and array are configured");
         } catch (IllegalArgumentException e) {
         } catch (IOException e) {
@@ -64,7 +67,8 @@ public class KeepFilterFactoryTests extends ESTokenStreamTestCase {
                 .build();
         try {
             // test our none existing setup is picked up
-            AnalysisTestsHelper.createAnalysisServiceFromSettings(settings);
+            AnalysisService analysisService = AnalysisTestsHelper.createAnalysisServiceFromSettings(settings);
+            analysisService.tokenFilter("non_broken_keep_filter");
             fail("expected an exception due to non existent keep_words_path");
         } catch (IllegalArgumentException e) {
         } catch (IOException e) {
@@ -76,7 +80,8 @@ public class KeepFilterFactoryTests extends ESTokenStreamTestCase {
                 .build();
         try {
             // test our none existing setup is picked up
-            AnalysisTestsHelper.createAnalysisServiceFromSettings(settings);
+            AnalysisService analysisService = AnalysisTestsHelper.createAnalysisServiceFromSettings(settings);
+            analysisService.tokenFilter("non_broken_keep_filter");
             fail("expected an exception indicating that you can't use [keep_words_path] with [keep_words] ");
         } catch (IllegalArgumentException e) {
         } catch (IOException e) {

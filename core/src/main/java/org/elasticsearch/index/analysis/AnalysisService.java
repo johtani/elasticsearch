@@ -23,11 +23,14 @@ import org.apache.lucene.analysis.Analyzer;
 import org.elasticsearch.Version;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.set.Sets;
+import org.elasticsearch.env.Environment;
 import org.elasticsearch.index.AbstractIndexComponent;
 import org.elasticsearch.index.IndexSettings;
 import org.elasticsearch.index.mapper.TextFieldMapper;
+import org.elasticsearch.indices.analysis.AnalysisModule;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -40,23 +43,21 @@ import static java.util.Collections.unmodifiableMap;
 public class AnalysisService extends AbstractIndexComponent implements Closeable {
 
     private final Map<String, NamedAnalyzer> analyzers;
-    private final Map<String, TokenizerFactory> tokenizers;
-    private final Map<String, CharFilterFactory> charFilters;
-    private final Map<String, TokenFilterFactory> tokenFilters;
 
     private final NamedAnalyzer defaultIndexAnalyzer;
     private final NamedAnalyzer defaultSearchAnalyzer;
     private final NamedAnalyzer defaultSearchQuoteAnalyzer;
 
+    private final AnalysisRegistry analysisRegistry;
+    private final Environment environment;
+
     public AnalysisService(IndexSettings indexSettings,
-                           Map<String, AnalyzerProvider<?>> analyzerProviders,
-                           Map<String, TokenizerFactory> tokenizerFactoryFactories,
-                           Map<String, CharFilterFactory> charFilterFactoryFactories,
-                           Map<String, TokenFilterFactory> tokenFilterFactoryFactories) {
+                           AnalysisRegistry analysisRegistry,
+                           Environment environment,
+                           Map<String, AnalyzerProvider<?>> analyzerProviders) {
         super(indexSettings);
-        this.tokenizers = unmodifiableMap(tokenizerFactoryFactories);
-        this.charFilters = unmodifiableMap(charFilterFactoryFactories);
-        this.tokenFilters = unmodifiableMap(tokenFilterFactoryFactories);
+        this.analysisRegistry = analysisRegistry;
+        this.environment = environment;
         analyzerProviders = new HashMap<>(analyzerProviders);
 
         Map<String, NamedAnalyzer> analyzerAliases = new HashMap<>();
@@ -204,15 +205,59 @@ public class AnalysisService extends AbstractIndexComponent implements Closeable
         return defaultSearchQuoteAnalyzer;
     }
 
-    public TokenizerFactory tokenizer(String name) {
-        return tokenizers.get(name);
+    public TokenizerFactory tokenizer(String tokenizerName) {
+        AnalysisModule.AnalysisProvider<TokenizerFactory> tokenizerFactoryFactory =
+            this.analysisRegistry.getTokenizerProvider(tokenizerName, this.indexSettings);
+        if (tokenizerFactoryFactory == null) {
+            throw new IllegalArgumentException("failed to find tokenizer under [" + tokenizerName + "]");
+        }
+        TokenizerFactory tokenizer;
+        try {
+            tokenizer =
+                tokenizerFactoryFactory.get(this.indexSettings, this.environment, tokenizerName,
+                    AnalysisRegistry.getSettingsFromIndexSettings(this.indexSettings,
+                        AnalysisRegistry.INDEX_ANALYSIS_TOKENIZER + "." + tokenizerName));
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException("failed to find tokenizer under name [" + tokenizerName + "]", ioe);
+        }
+        return tokenizer;
     }
 
-    public CharFilterFactory charFilter(String name) {
-        return charFilters.get(name);
+    public TokenFilterFactory tokenFilter(String tokenFilterName) {
+        AnalysisModule.AnalysisProvider<TokenFilterFactory> tokenFilterfactoryFactory =
+            this.analysisRegistry.getTokenFilterProvider(tokenFilterName, this.indexSettings);
+        if (tokenFilterfactoryFactory == null) {
+            throw new IllegalArgumentException("failed to find token filter under [" + tokenFilterName + "]");
+        }
+        TokenFilterFactory tokenFilter;
+        try {
+            tokenFilter =
+                tokenFilterfactoryFactory.get(this.indexSettings, this.environment, tokenFilterName,
+                    AnalysisRegistry.getSettingsFromIndexSettings(this.indexSettings,
+                        AnalysisRegistry.INDEX_ANALYSIS_FILTER + "." + tokenFilterName));
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException("failed to find token filter under name [" + tokenFilterName + "]", ioe);
+        }
+        return tokenFilter;
+
     }
 
-    public TokenFilterFactory tokenFilter(String name) {
-        return tokenFilters.get(name);
+    public CharFilterFactory charFilter(String charFilterName) {
+        AnalysisModule.AnalysisProvider<CharFilterFactory> charFilterFactoryFactory =
+            this.analysisRegistry.getCharFilterProvider(charFilterName, this.indexSettings);
+        if (charFilterFactoryFactory == null) {
+            throw new IllegalArgumentException("failed to find char_filter under [" + charFilterName + "]");
+        }
+        CharFilterFactory charFilter;
+        try {
+            charFilter =
+                charFilterFactoryFactory.get(this.indexSettings, this.environment, charFilterName,
+                    AnalysisRegistry.getSettingsFromIndexSettings(this.indexSettings,
+                        AnalysisRegistry.INDEX_ANALYSIS_CHAR_FILTER + "." + charFilterName));
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException("failed to find char_filter under name [" + charFilterName + "]", ioe);
+        }
+        return charFilter;
+
     }
 }

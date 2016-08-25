@@ -25,7 +25,9 @@ import org.elasticsearch.common.component.AbstractComponent;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.IndexScopedSettings;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.env.Environment;
 import org.elasticsearch.index.IndexSettings;
+import org.elasticsearch.index.analysis.AnalysisRegistry;
 import org.elasticsearch.index.analysis.AnalysisService;
 import org.elasticsearch.index.analysis.NamedAnalyzer;
 import org.elasticsearch.index.mapper.MapperService;
@@ -46,12 +48,17 @@ public class MetaDataIndexUpgradeService extends AbstractComponent {
 
     private final MapperRegistry mapperRegistry;
     private final IndexScopedSettings indexScopedSettings;
+    private final Environment environment;
+    private final AnalysisRegistry analysisRegistry;
 
     @Inject
-    public MetaDataIndexUpgradeService(Settings settings, MapperRegistry mapperRegistry, IndexScopedSettings indexScopedSettings) {
+    public MetaDataIndexUpgradeService(Settings settings, MapperRegistry mapperRegistry, IndexScopedSettings indexScopedSettings,
+                                       Environment environment, AnalysisRegistry analysisRegistry) {
         super(settings);
         this.mapperRegistry = mapperRegistry;
         this.indexScopedSettings = indexScopedSettings;
+        this.environment = environment;
+        this.analysisRegistry = analysisRegistry;
     }
 
     /**
@@ -122,7 +129,7 @@ public class MetaDataIndexUpgradeService extends AbstractComponent {
             IndexSettings indexSettings = new IndexSettings(indexMetaData, this.settings);
             SimilarityService similarityService = new SimilarityService(indexSettings, Collections.emptyMap());
 
-            try (AnalysisService analysisService = new FakeAnalysisService(indexSettings)) {
+            try (AnalysisService analysisService = new FakeAnalysisService(indexSettings, analysisRegistry, environment)) {
                 MapperService mapperService = new MapperService(indexSettings, analysisService, similarityService, mapperRegistry, () -> null);
                 for (ObjectCursor<MappingMetaData> cursor : indexMetaData.getMappings().values()) {
                     MappingMetaData mappingMetaData = cursor.value;
@@ -155,8 +162,8 @@ public class MetaDataIndexUpgradeService extends AbstractComponent {
             }
         };
 
-        public FakeAnalysisService(IndexSettings indexSettings) {
-            super(indexSettings, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+        public FakeAnalysisService(IndexSettings indexSettings, AnalysisRegistry analysisRegistry, Environment environment) {
+            super(indexSettings, analysisRegistry, environment, Collections.emptyMap());
         }
 
         @Override

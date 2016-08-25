@@ -47,7 +47,8 @@ public class StopTokenFilterTests extends ESTokenStreamTestCase {
         builder.put(Environment.PATH_HOME_SETTING.getKey(), createTempDir().toString());
         Settings settings = builder.build();
         try {
-            AnalysisTestsHelper.createAnalysisServiceFromSettings(settings);
+            AnalysisService analysisService = AnalysisTestsHelper.createAnalysisServiceFromSettings(settings);
+            analysisService.tokenFilter("my_stop");
             fail("Expected IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage(), containsString("enable_position_increments is not supported anymore"));

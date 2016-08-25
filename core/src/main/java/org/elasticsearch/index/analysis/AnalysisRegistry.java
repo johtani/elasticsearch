@@ -139,25 +139,11 @@ public final class AnalysisRegistry implements Closeable {
      * Creates an index-level {@link AnalysisService} from this registry using the given index settings
      */
     public AnalysisService build(IndexSettings indexSettings) throws IOException {
-        final Map<String, Settings> charFiltersSettings = indexSettings.getSettings().getGroups(INDEX_ANALYSIS_CHAR_FILTER);
-        final Map<String, Settings> tokenFiltersSettings = indexSettings.getSettings().getGroups(INDEX_ANALYSIS_FILTER);
-        final Map<String, Settings> tokenizersSettings = indexSettings.getSettings().getGroups(INDEX_ANALYSIS_TOKENIZER);
         final Map<String, Settings> analyzersSettings = indexSettings.getSettings().getGroups("index.analysis.analyzer");
 
-        final Map<String, CharFilterFactory> charFilterFactories = buildMapping(false, "charfilter", indexSettings, charFiltersSettings, charFilters, prebuiltAnalysis.charFilterFactories);
-        final Map<String, TokenizerFactory> tokenizerFactories = buildMapping(false, "tokenizer", indexSettings, tokenizersSettings, tokenizers, prebuiltAnalysis.tokenizerFactories);
-
-        Map<String, AnalysisModule.AnalysisProvider<TokenFilterFactory>> tokenFilters = new HashMap<>(this.tokenFilters);
-        /*
-         * synonym is different than everything else since it needs access to the tokenizer factories for this index.
-         * instead of building the infrastructure for plugins we rather make it a real exception to not pollute the general interface and
-         * hide internal data-structures as much as possible.
-         */
-        tokenFilters.put("synonym", requriesAnalysisSettings((is, env, name, settings) -> new SynonymTokenFilterFactory(is, env, this, name, settings)));
-        final Map<String, TokenFilterFactory> tokenFilterFactories = buildMapping(false, "tokenfilter", indexSettings, tokenFiltersSettings, Collections.unmodifiableMap(tokenFilters), prebuiltAnalysis.tokenFilterFactories);
         final Map<String, AnalyzerProvider<?>> analyzierFactories = buildMapping(true, "analyzer", indexSettings, analyzersSettings,
                 analyzers, prebuiltAnalysis.analyzerProviderFactories);
-        return new AnalysisService(indexSettings, analyzierFactories, tokenizerFactories, charFilterFactories, tokenFilterFactories);
+        return new AnalysisService(indexSettings, this, this.environment, analyzierFactories);
     }
 
     /**
