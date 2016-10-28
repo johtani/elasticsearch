@@ -289,8 +289,22 @@ public class DynamicTemplate implements ToXContent {
             // TODO: remove this in 6.0
             // TODO: how to do it in the future?
             final Object index = mapping.get("index");
-            if ("not_analyzed".equals(index) || "no".equals(index)) {
-                type = "keyword";
+            if (index != null) {
+                final String normalizedIndex = index.toString();
+                switch (normalizedIndex) {
+                    case "analyzed":
+                        mapping.put("index", true);
+                        break;
+                    case "not_analyzed":
+                        mapping.put("index", true);
+                        type = "keyword";
+                        break;
+                    case "no":
+                        mapping.put("index", false);
+                        type = "keyword";
+                        break;
+                    default:
+                }
             }
         }
         return type;

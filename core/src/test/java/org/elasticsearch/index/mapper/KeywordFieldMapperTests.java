@@ -354,4 +354,50 @@ public class KeywordFieldMapperTests extends ESSingleNodeTestCase {
                 .endObject().endObject().string();
         assertEquals(downgradedMapping, defaultMapper.mappingSource().string());
     }
+
+
+    public void testIndexOptionValidation() throws IOException {
+        String mapping = XContentFactory.jsonBuilder().startObject()
+            .startObject("type")
+            .startObject("properties")
+            .startObject("field")
+            .field("type", "keyword")
+            .field("index", "analyzed")
+            .endObject()
+            .endObject()
+            .endObject().endObject().string();
+
+        IllegalArgumentException e = expectThrows(IllegalArgumentException.class,
+            () -> parser.parse("type", new CompressedXContent(mapping))
+        );
+        assertThat(e.getMessage(), containsString("Can't parse [index] value "));
+        assertThat(e.getMessage(), containsString("expected [true] or [false]"));
+
+        String mapping2 = XContentFactory.jsonBuilder().startObject()
+            .startObject("type")
+            .startObject("properties")
+            .startObject("field")
+            .field("type", "keyword")
+            .field("index", "false")
+            .endObject()
+            .endObject()
+            .endObject().endObject().string();
+
+        DocumentMapper mapper = parser.parse("type", new CompressedXContent(mapping2));
+
+        assertEquals(mapping2.replaceAll("\"false\"", "false"), mapper.mappingSource().toString());
+
+        ParsedDocument doc = mapper.parse("test", "type", "1", XContentFactory.jsonBuilder()
+            .startObject()
+            .field("field", "1234")
+            .endObject()
+            .bytes());
+
+        IndexableField[] fields = doc.rootDoc().getFields("field");
+        assertEquals(1, fields.length);
+        assertEquals(IndexOptions.NONE, fields[0].fieldType().indexOptions());
+        assertEquals(DocValuesType.SORTED_SET, fields[0].fieldType().docValuesType());
+    }
+
+
 }

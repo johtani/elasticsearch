@@ -240,7 +240,11 @@ public class TypeParsers {
                 builder.store(parseStore(name, propNode.toString(), parserContext));
                 iterator.remove();
             } else if (propName.equals("index")) {
-                builder.index(parseIndex(name, propNode.toString(), parserContext));
+                if (parserContext.indexVersionCreated().before(Version.V_5_0_0_rc1)) {
+                    builder.index(parseIndex(name, propNode.toString(), parserContext));
+                } else {
+                    builder.index(parseIndexStrict(name, propNode.toString(), true));
+                }
                 iterator.remove();
             } else if (propName.equals(DOC_VALUES)) {
                 builder.docValues(nodeBooleanValue(DOC_VALUES, propNode, parserContext));
@@ -383,6 +387,10 @@ public class TypeParsers {
     }
 
     public static boolean parseIndex(String fieldName, String index, Mapper.TypeParser.ParserContext parserContext) throws MapperParsingException {
+        return parseIndexStrict(fieldName, index, parserContext.parseFieldMatcher().isStrict());
+    }
+
+    public static boolean parseIndexStrict(String fieldName, String index, boolean isStrict) throws MapperParsingException {
         switch (index) {
         case "true":
             return true;
@@ -391,7 +399,7 @@ public class TypeParsers {
         case "not_analyzed":
         case "analyzed":
         case "no":
-            if (parserContext.parseFieldMatcher().isStrict() == false) {
+            if (isStrict == false) {
                 DEPRECATION_LOGGER.deprecated("Expected a boolean for property [index] but got [{}]", index);
                 return "no".equals(index) == false;
             } else {
